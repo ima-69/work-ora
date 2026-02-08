@@ -1,3 +1,4 @@
+import getBuffer from "../utils/buffer.js";
 import { sql } from "../utils/db.js";
 import ErrorHandler from "../utils/errorHandler.js";
 import { TryCatch } from "../utils/TryCatch.js";
@@ -20,25 +21,37 @@ export const registerUser = TryCatch(async (req, res, next) => {
     throw new ErrorHandler(400, "User with this email already exists");
   }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-    let registeredUser;
+  let registeredUser;
 
-    if (role === "recruiter") {
-        const [user] = await sql`INSERT INTO users (name, email, password, phone_number, role) VALUES 
+  if (role === "recruiter") {
+    const [user] =
+      await sql`INSERT INTO users (name, email, password, phone_number, role) VALUES 
         (${name}, ${email}, ${hashedPassword}, ${phoneNumber}, ${role}) RETURNING 
         user_id, name, email, phone_number, role, created_at`;
 
-        registeredUser = user;
-    } else if (role === "jobseeker") {
-        const file = req.file;
-        const [user] = await sql`INSERT INTO users (name, email, password, phone_number, role) VALUES 
+    registeredUser = user;
+  } else if (role === "jobseeker") {
+    const file = req.file;
+
+    if (!file) {
+      throw new ErrorHandler(400, "Resume file is required for jobseekers");
+    }
+
+    const fileBuffer = getBuffer(file);
+
+    if (!fileBuffer || !fileBuffer.content) {
+      throw new ErrorHandler(400, "Failed to generate buffer from uploaded file");
+    } 
+
+    const [user] =
+      await sql`INSERT INTO users (name, email, password, phone_number, role) VALUES 
         (${name}, ${email}, ${hashedPassword}, ${phoneNumber}, ${role}) RETURNING 
         user_id, name, email, phone_number, role, bio, created_at`;
 
-        registeredUser = user;
-    }
-
+    registeredUser = user;
+  }
 
   res.json(email);
 });
