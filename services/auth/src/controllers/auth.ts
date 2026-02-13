@@ -179,3 +179,50 @@ export const forgotPassword = TryCatch(async (req, res, next) => {
     message: "If that email exists, we have sent a reset link",
   });
 });
+
+export const resetPassword = TryCatch(async (req, res, next) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  if (!token || typeof token !== 'string') {
+    throw new ErrorHandler(400, "Invalid token");
+  }
+
+  let decoded: any;
+
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+  } catch (error) {
+    throw new ErrorHandler(400, "Expired token");
+  }
+
+  if (decoded.type !== "reset") {
+    throw new ErrorHandler(400, "Invalid token");
+  }
+
+  const email = decoded.email;
+
+  const storedToken = await redisClient.get(`forgot:${email}`);
+
+  if (!storedToken || storedToken !== token) {
+    throw new ErrorHandler(400, "Token has been expired");
+  }
+
+  const users = await sql`SELECT user_id FROM users WHERE email = ${email}`;
+
+  if (users.length === 0) {
+    throw new ErrorHandler(400, "User not found");
+  }
+
+  const user = users[0];
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await sql`UPDATE users SET password = ${hashedPassword} WHERE user_id = ${user.user_id}`;
+
+  await redisClient.del(`forgot:${email}`);
+
+  res.json({
+    message: "Password reset successfully",
+  });
+});
