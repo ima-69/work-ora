@@ -7,6 +7,7 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import { forgotPasswordTemplate } from "../template.js";
 import { publishToTopic } from "../producer.js";
+import { redisClient } from "../index.js";
 
 export const registerUser = TryCatch(async (req, res, next) => {
   const { name, email, password, phoneNumber, role, bio } = req.body;
@@ -160,13 +161,19 @@ export const forgotPassword = TryCatch(async (req, res, next) => {
 
   const resetLink = `${process.env.FRONTEND_URL}/reset/${resetToken}`;
 
+  await redisClient.set(`forgot:${email}`, resetToken, {
+    EX: 15 * 60, 
+  });
+
   const message = {
     to: email,
     subject: "Reset Your Password - Work-Ora",
     html: forgotPasswordTemplate(resetLink),
   };
 
-  publishToTopic("send-mail", message);
+  publishToTopic("send-mail", message).catch((err) => {
+    console.error("Failed to send message:", err);
+  });
   
   res.json({
     message: "If that email exists, we have sent a reset link",
