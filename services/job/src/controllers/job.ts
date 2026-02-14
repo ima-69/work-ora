@@ -271,3 +271,11 @@ export const getAllActiveJobs = TryCatch(async (req: AuthenticatedRequest, res) 
 
   res.json(jobs);
 });
+
+export const getJobById = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const [job] = await sql`
+    SELECT * FROM jobs WHERE job_id = ${req.params.jobId}
+  `;
+
+  res.json(job);
+});
