@@ -212,3 +212,28 @@ export const getAllCompanies = TryCatch(async (req: AuthenticatedRequest, res) =
 
   res.json(companies);
 });
+
+export const getCompanyById = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    throw new ErrorHandler(400, "Company ID is required");
+  }
+
+  const [companyData] = await sql`
+    SELECT c.*, COALESCE (
+    (
+      SELECT json_agg(j.*) FROM jobs j WHERE j.company_id = c.company_id
+    ),
+    '[]'::json
+    ) AS jobs
+    FROM companies c
+    WHERE c.company_id = ${id} GROUP BY c.company_id
+  `;
+
+  if (!companyData) {
+    throw new ErrorHandler(404, "Company not found");
+  }
+
+  res.json(companyData);
+});
