@@ -205,4 +205,10 @@ export const updateJob = TryCatch(async (req: AuthenticatedRequest, res) => {
   });
 });
 
+export const getAllCompanies = TryCatch(async (req: AuthenticatedRequest, res) => {
+  const companies = await sql`
+    SELECT * FROM companies WHERE recruiter_id = ${req.user?.user_id}
+  `;
 
+  res.json(companies);
+});
